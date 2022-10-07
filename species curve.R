@@ -1,3 +1,8 @@
+
+# install.packages----
+# install.packages("remotes")
+# remotes::install_github("KaiHsiangHu/iNEXT.3D")
+
 library(tidyverse)
 library(patchwork)
 library(iNEXT.3D)
