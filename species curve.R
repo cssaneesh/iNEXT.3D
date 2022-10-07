@@ -1,119 +1,128 @@
-# Install packages----
-# install.packages("remotes")
-# remotes::install_github("KaiHsiangHu/iNEXT.3D")
-
-# Library----
 library(tidyverse)
 library(patchwork)
 library(iNEXT.3D)
 library(viridis)
-library(skimr)
-
 # Data----
-transect_prep_iNext <- data.frame(#Site= as.character(seq(1:200)),
-  Treatment= factor(c(rep('Control', 60), 
-                      rep('Treatment-1', 40), 
-                      rep('Treatment-2', 100))),
-  Transect= as.character(seq(1:200)),
-  Family=c(rep('Acanthaceae', 20), 
-           rep('Amaranthaceae', 20),
-           rep('Euphorbiaceae', 10),
-           rep('Amaranthaceae', 40),
-           rep('Acanthaceae', 10),
-           rep('Acanthaceae', 10),
-           rep('Asteraceae', 10),
-           rep('Caryophyllaceae', 10),
-           rep('Commelinaceae', 10),
-           rep('Convolvulaceae', 20),
-           rep('Amaranthaceae', 10),
-           rep('Euphorbiaceae', 10),
-           rep('Cyperaceae', 20))) 
-names(transect_prep_iNext)
+transect_prep_iNext  <- read.csv('https://raw.githubusercontent.com/cssaneesh/iNEXT.3D/main/transect_prep_iNext.csv')
 
-# relevel treatment and add presence of species as numeric
-transect_prep_iNext<-transect_prep_iNext %>%  
-  mutate(Treatment = fct_relevel(Treatment, c("Control","Treatment-1","Treatment-2"))) %>% 
-  mutate(pres= as.numeric(1))
+transect_prep_iNext <- transect_prep_iNext %>%
+  mutate(Presence = as.numeric(1)) %>% 
+  mutate(Group = factor(Group)) %>% # to order Groups while ploting
+  mutate(Group = fct_relevel(Group, c("Group-i","Group-ii","Group-iii")))
 
-# names(transect_prep_iNext)
-# View(transect_prep_iNext)
-# glimpse(transect_prep_iNext)
-
-# make lists----
-
+# First list
 transect.list <- transect_prep_iNext %>%
-  split(.$Treatment)
-
+  split(.$Group)
+# Second list
 transect.matrix.list <- purrr::map(
   transect.list,
   ~ .x %>%
-    select(Family, Transect, pres) %>%
+    select(Species, Site, Presence) %>%
     distinct() %>%
-    spread(key = Transect, value = pres) %>%
+    spread(key = Site, value = Presence) %>%
     replace(is.na(.), 0) %>%
-    column_to_rownames(var = "Family")
+    column_to_rownames(var = "Species")
 )
 
-# Taxonomic diversity----
+#  Taxonomic diversity-----
 TD_treat_out <-
   iNEXT3D(
     data = transect.matrix.list,
     diversity = 'TD',
     q = c(0, 1, 2),
-    datatype = 'incidence_raw', 
-    size = c(1:180), # number of sampling units for which diversity be computed.
+    datatype = 'incidence_raw',
+    size = c(1:60),
     nboot = 0
   )
 
 TD_treat_out$DataInfo
-# Assemblage = the treament or groups
+# Assemblage = the Group or groups
 # T = Reference sample size
 # U = Total number of incidents
-# S.obs = Observed species richness
+# S.obs = Observed Species richness
 # SC = Sample coverage
 
 TD_treat_out$AsyEst # to see the asymptotic diversity estimates
 
+# Make df for ploting----
 transect.TD.df <- TD_treat_out %>%
   purrr::pluck("iNextEst", "size_based")
 
 transect_info <- transect_prep_iNext %>%
-  distinct() %>% mutate(Assemblage = as.character(Treatment))
+  distinct() %>% mutate(Assemblage = as.character(Group))
 
 transect.hill.TD <- transect.TD.df %>% left_join(transect_info) %>%
-  mutate(Order.q  = case_when(Order.q  == "0" ~ "q = 0", # q0= Species richness
-                              Order.q == "1" ~ "q = 1",
-                              Order.q == "2" ~ "q = 2")) %>% # q2= Species eveness
+  mutate(Order.q  = case_when(Order.q  == "0" ~ "q = 0", # q=0 Species richness
+                              Order.q == "1" ~ "q = 1", # q=1 Shannon diversity
+                              Order.q == "2" ~ "q = 2")) %>% # q=2 Simpson diversity or evenness
   filter(!Order.q == "q = 1")
 
 df.point <-
-  transect.hill.TD[which(transect.hill.TD$Method == "Observed"),]
+  transect.hill.TD[which(transect.hill.TD$Method == "Observed"), ]
 df.line <-
-  transect.hill.TD[which(transect.hill.TD$Method != "Observed"),]
+  transect.hill.TD[which(transect.hill.TD$Method != "Observed"), ]
 df.line$Method <- factor(df.line$Method,
                          c("Rarefaction", "Extrapolation"))
+# Rarefaction or Interpolation?
 
 # Plot----
-ggplot(transect.hill.TD ,
-       aes(x = nt, y = qD,   color = Treatment)) +
+transect.TD.fig_op1 <- ggplot(transect.hill.TD ,
+                              aes(x = nt, y = qD,   color = Group)) +
   facet_wrap( ~ Order.q) +
   geom_point(aes(),
              shape = 1,
              size = 2,
              data = df.point) +
   geom_line(aes(linetype = Method), lwd = 0.75, data = df.line) +
-  labs(x = "Number of sampling units", y = "Taxonomic diversity", title =
-         "Sample - based diversity accumulation ")
+  labs(
+    x = "Number of sampling units",
+    y = "Taxonomic diversity",
+    title =
+      "Sample - based diversity accumulation ",
+    caption = "Group-i= xxx xxxxx xxxxx xx xxx
+Group-ii= xxx xxxxx xxxxx xx xxx
+Group-iii= xxx xxxxx xxxxx xx xxx"
+  ) +
+  scale_color_manual(values = c(
+    "Group-i" = "#BB9689",
+    "Group-ii" = "#836656",
+    "Group-iii" = "#6C3859"
+  )) +
+  # scale_color_manual(values =  c("#A6BAd7", '#836656',"#6C3859"))  +
+  # scale_colour_grey()+
+  theme_bw(base_size = 12) +
+  theme(legend.text = element_text(size = 8)) +
+  guides(col = guide_legend(ncol = 15)) +
+  theme(plot.title = element_text(size = 14, hjust = 0.5)) +
+  theme(
+    panel.grid.major = element_line(colour = "gray86", size = 0.1),
+    panel.background = element_rect(fill = "white")
+  )
 
-# save figure----
 
-# ggsave('Sampling curve.jpg', width = 10, height = 6, dpi = 300, path = "Drive Letter:/Folder/Folder")
 
-transect_prep_iNext  %>% 
-  group_by(Treatment) %>% 
-  distinct(Family) %>% 
-  summarise(Family=n()) # note the number of Family and run the following code
+(
+  transect.TD.fig_op1 +
+    #   labs(caption = "Control= Cymbopogon Presenceent and fire Presenceent
+    # CPFA= Cymbopogon Presenceent and fire absent
+    # CAFA= Cymbopogon absent and fire absent")+
+    theme(plot.caption = element_text(
+      size = 8, face = "italic",
+      hjust = 0.0
+    )) +
+    theme(legend.position = 'bottom',) +
+    theme(
+      legend.position = c(0.95, .75),
+      legend.direction = "vertical"
+    ) +
+    theme(legend.background = element_rect(fill = NA))
+)
 
-TD_treat_out$DataInfo # S.obs= Observed species richness will be the same, this is the q=0 in the plot
+transect_prep_iNext  %>%
+  group_by(Group) %>%
+  distinct(Species) %>%
+  summarise(Species = n()) # note the number of Family and run the following code
 
-# Enjoy----
+TD_treat_out$DataInfo # S.obs= Observed Species richness will be the same, this is the q=0 in the plot
+
+TD_treat_out$iNextEst
