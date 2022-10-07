@@ -1,19 +1,28 @@
 # install.packages----
 # library(devtools)
 # install_github("KaiHsiangHu/iNEXT.3D")
+# install.packages('tidyverse')
+# install.packages('purrr')
 
-library(tidyverse)
+# libraries----
 library(iNEXT.3D)
+library(tidyverse)
+library(purrr)
 
 # Data----
 transect_prep_iNext  <- read.csv('https://raw.githubusercontent.com/cssaneesh/iNEXT.3D/main/transect_prep_iNext.csv')
+
+# Data dictionary----
+# Group= can be different treatments, habitat types, elevations, etc.
+# Site= within groups site or plots
+# Species= individual species or observation
 
 str(transect_prep_iNext ) # make the grouping variable a factor
 
 transect_prep_iNext <- transect_prep_iNext %>%
   mutate(Presence = as.numeric(1)) %>% 
-  mutate(Group = factor(Group)) %>% # to order Groups while ploting
-  mutate(Group = fct_relevel(Group, c('Group-i','Group-ii'= 'Group-iii')))
+  mutate(Group = factor(Group)) %>% # to order Groups while making graph
+  mutate(Group = fct_relevel(Group, c('Group-i','Group-ii', 'Group-iii')))
 
 # First list
 transect.list <- transect_prep_iNext %>%
@@ -71,8 +80,10 @@ transect.hill.TD <- transect.TD.df %>% left_join(transect_info) %>%
 
 df.point <-
   transect.hill.TD[which(transect.hill.TD$Method == "Observed"), ]
+
 df.line <-
   transect.hill.TD[which(transect.hill.TD$Method != "Observed"), ]
+
 df.line$Method <- factor(df.line$Method,
                          c("Rarefaction", "Extrapolation"))
 
@@ -84,9 +95,8 @@ ggplot(transect.hill.TD ,
              shape = 1,
              size = 2,
              data = df.point) +
-  geom_line(aes(linetype = Method), lwd = 0.75, data = df.line, alpha=0.5) +
+  geom_line(aes(linetype = Method), lwd = 0.75, data = df.line, alpha=0.8) +
   labs(x = "Number of sampling units",
        y = "Taxonomic diversity",
        title =
          "Sample - based diversity accumulation ")
-
