@@ -31,7 +31,7 @@ TD_treat_out <-
     diversity = 'TD',
     q = c(0, 1, 2),
     datatype = 'incidence_raw',
-    size = c(1:60),
+    size = c(1:40),
     nboot = 0
   )
 
@@ -44,7 +44,7 @@ TD_treat_out$DataInfo
 
 TD_treat_out$AsyEst # to see the asymptotic diversity estimates
 
-# Make df for ploting----
+# Make data frame for ggplot----
 transect.TD.df <- TD_treat_out %>%
   purrr::pluck("iNextEst", "size_based")
 
@@ -63,7 +63,6 @@ df.line <-
   transect.hill.TD[which(transect.hill.TD$Method != "Observed"), ]
 df.line$Method <- factor(df.line$Method,
                          c("Rarefaction", "Extrapolation"))
-# Rarefaction or Interpolation?
 
 # Plot----
 transect.TD.fig_op1 <- ggplot(transect.hill.TD ,
@@ -78,18 +77,12 @@ transect.TD.fig_op1 <- ggplot(transect.hill.TD ,
     x = "Number of sampling units",
     y = "Taxonomic diversity",
     title =
-      "Sample - based diversity accumulation ",
-    caption = "Group-i= xxx xxxxx xxxxx xx xxx
-Group-ii= xxx xxxxx xxxxx xx xxx
-Group-iii= xxx xxxxx xxxxx xx xxx"
-  ) +
+      "Sample - based diversity accumulation ") +
   scale_color_manual(values = c(
-    "Group-i" = "#BB9689",
-    "Group-ii" = "#836656",
-    "Group-iii" = "#6C3859"
+    "Group-i" = "red",
+    "Group-ii" = "blue",
+    "Group-iii" = "green"
   )) +
-  # scale_color_manual(values =  c("#A6BAd7", '#836656',"#6C3859"))  +
-  # scale_colour_grey()+
   theme_bw(base_size = 12) +
   theme(legend.text = element_text(size = 8)) +
   guides(col = guide_legend(ncol = 15)) +
@@ -100,29 +93,21 @@ Group-iii= xxx xxxxx xxxxx xx xxx"
   )
 
 
+plot <-   transect.TD.fig_op1 +
+  theme(plot.caption = element_text(size = 8, face = "italic",
+                                    hjust = 0.5)) +
+  theme(legend.position = 'bottom', )  +
+  theme(legend.background = element_rect(fill = NA))
 
-(
-  transect.TD.fig_op1 +
-    #   labs(caption = "Control= Cymbopogon Presenceent and fire Presenceent
-    # CPFA= Cymbopogon Presenceent and fire absent
-    # CAFA= Cymbopogon absent and fire absent")+
-    theme(plot.caption = element_text(
-      size = 8, face = "italic",
-      hjust = 0.0
-    )) +
-    theme(legend.position = 'bottom',) +
-    theme(
-      legend.position = c(0.95, .75),
-      legend.direction = "vertical"
-    ) +
-    theme(legend.background = element_rect(fill = NA))
-)
+plot+ 
+  theme(legend.position = c(0.9, 0.7)) # you can over write this.
 
 transect_prep_iNext  %>%
   group_by(Group) %>%
   distinct(Species) %>%
-  summarise(Species = n()) # note the number of Family and run the following code
+  summarise(Species = n()) # note the number of Species and run the following code
 
-TD_treat_out$DataInfo # S.obs= Observed Species richness will be the same, this is the q=0 in the plot
+TD_treat_out$DataInfo # S.obs= Observed Species richness will be the same, this is shown on the y axis of q=0 
 
-TD_treat_out$iNextEst
+TD_treat_out$AsyEst # to see the asymptotic diversity estimates note the Simpson diversity and compare with q=2
+
